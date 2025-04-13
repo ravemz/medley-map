@@ -1,6 +1,7 @@
 import { Feature, MapBrowserEvent, Map as olMap, View } from "ol";
 import { Polygon, Point } from "ol/geom";
-import { defaults } from "ol/interaction";
+import { defaults as defaultInteractions } from "ol/interaction";
+import { defaults as defaultControls } from "ol/control";
 import Draw from "ol/interaction/Draw";
 import Modify from "ol/interaction/Modify";
 import Translate from "ol/interaction/Translate";
@@ -167,24 +168,31 @@ export default function Map({
 
       const map = new olMap({
         target: mapDiv,
-        interactions: defaults({
+        // Disable zoom controls (+/- buttons)
+        controls: defaultControls({
+          zoom: false
+        }),
+        interactions: defaultInteractions({
           altShiftDragRotate: false,
           pinchRotate: false,
+          // Enable mouseWheelZoom to allow zooming in and out
+          mouseWheelZoom: true,
+          // Keep basic interactions like dragging
+          dragPan: true,
         }),
         layers: [imageLayer, markersLayer],
         view: new View({
           projection: projection,
+          // Set a very low minZoom to allow seeing the entire map at once
+          minZoom: 0.2,
+          // Remove extent constraint to allow panning outside the image
         }),
       });
 
-      if (
-        typeof localStorage !== "undefined" &&
-        localStorage.getItem("map-extent")
-      ) {
-        map.getView().fit(JSON.parse(localStorage.getItem("map-extent")!));
-      } else {
-        map.getView().fit(extent);
-      }
+      // Fit to the extent with padding to ensure the entire map is visible
+      map.getView().fit(extent, {
+        padding: [20, 20, 20, 20]
+      });
 
       map.on("pointermove", (e) => {
         const selectable = map.forEachFeatureAtPixel(e.pixel, (f) => f);

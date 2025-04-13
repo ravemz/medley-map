@@ -32,16 +32,69 @@ export default function RoomSelect({
     onRoomSelected && onRoomSelected(room);
   };
 
-  // Helper function to highlight matched text
+  // Helper function to highlight matched text, accounting for hyphens
   const highlightMatch = (text: string, query: string): ReactNode => {
     if (!query) return text;
     
-    const index = text.toLowerCase().indexOf(query.toLowerCase());
-    if (index === -1) return text;
+    // For regular exact matches, use the standard approach
+    const exactIndex = text.toLowerCase().indexOf(query.toLowerCase());
+    if (exactIndex !== -1) {
+      const before = text.substring(0, exactIndex);
+      const match = text.substring(exactIndex, exactIndex + query.length);
+      const after = text.substring(exactIndex + query.length);
+      
+      return (
+        <>
+          {before}
+          <span className="bg-highlight font-semibold">{match}</span>
+          {after}
+        </>
+      );
+    }
     
-    const before = text.substring(0, index);
-    const match = text.substring(index, index + query.length);
-    const after = text.substring(index + query.length);
+    // For matches that might involve hyphens, we need a more complex approach
+    const textLower = text.toLowerCase();
+    const queryLower = query.toLowerCase();
+    const textWithoutHyphens = removeHyphens(textLower);
+    const queryWithoutHyphens = removeHyphens(queryLower);
+    
+    // Find the match in the hyphen-free versions
+    const hyphenFreeIndex = textWithoutHyphens.indexOf(queryWithoutHyphens);
+    if (hyphenFreeIndex === -1) return text;
+    
+    // Map the hyphen-free index back to the original text
+    let originalStartIndex = -1;
+    let originalEndIndex = -1;
+    let hyphenFreePos = 0;
+    
+    // Find the start position in the original text
+    for (let i = 0; i < textLower.length; i++) {
+      if (textLower[i] !== '-') {
+        if (hyphenFreePos === hyphenFreeIndex) {
+          originalStartIndex = i;
+          break;
+        }
+        hyphenFreePos++;
+      }
+    }
+    
+    // Find the end position in the original text
+    hyphenFreePos = 0;
+    for (let i = 0; i < textLower.length; i++) {
+      if (textLower[i] !== '-') {
+        hyphenFreePos++;
+      }
+      if (hyphenFreePos === hyphenFreeIndex + queryWithoutHyphens.length) {
+        originalEndIndex = i + 1; // +1 to include the current character
+        break;
+      }
+    }
+    
+    if (originalStartIndex === -1 || originalEndIndex === -1) return text;
+    
+    const before = text.substring(0, originalStartIndex);
+    const match = text.substring(originalStartIndex, originalEndIndex);
+    const after = text.substring(originalEndIndex);
     
     return (
       <>
@@ -52,22 +105,30 @@ export default function RoomSelect({
     );
   };
 
+  // Helper function to remove hyphens for comparison
+  const removeHyphens = (text: string): string => {
+    return text.replace(/-/g, '');
+  };
+
   let results;
   if (query === "") {
-    results = config.map.rooms.sort((a, b) => a.label.localeCompare(b.label));
+    // Sort rooms alphabetically and then reverse the order
+    results = config.map.rooms.sort((a, b) => a.label.localeCompare(b.label)).reverse();
   } else {
     // Use substring matching that activates from the first character
+    // Remove hyphens from query for comparison
+    const queryLower = query.toLowerCase();
+    const queryWithoutHyphens = removeHyphens(queryLower);
+    
     results = config.map.rooms.filter((room) => {
-      const queryLower = query.toLowerCase();
-      
-      // Check if room label contains the query as a substring
-      if (room.label.toLowerCase().includes(queryLower)) {
+      // Check if room label contains the query as a substring (ignoring hyphens)
+      if (removeHyphens(room.label.toLowerCase()).includes(queryWithoutHyphens)) {
         return true;
       }
       
-      // Check if any room alias contains the query as a substring
+      // Check if any room alias contains the query as a substring (ignoring hyphens)
       if (room.aliases && room.aliases.some(alias => 
-        alias.toLowerCase().includes(queryLower)
+        removeHyphens(alias.toLowerCase()).includes(queryWithoutHyphens)
       )) {
         return true;
       }
@@ -80,7 +141,7 @@ export default function RoomSelect({
   if (focused) {
     icon = (
       <button
-        className="absolute left-6 top-2 cursor-pointer pb-2 pl-1 pr-2 pt-2 text-primary-text"
+        className="absolute left-6 top-3 cursor-pointer pb-2 pl-1 pr-2 pt-2 text-primary-text"
         tabIndex={1}
         onClick={onDismiss}
       >
@@ -89,19 +150,19 @@ export default function RoomSelect({
     );
   } else {
     icon = (
-      <MagnifyingGlassIcon className="absolute left-6 top-2 size-10 pb-2 pl-1 pr-2 pt-2 text-primary-text" />
+      <MagnifyingGlassIcon className="absolute left-6 top-3 size-10 pb-2 pl-1 pr-2 pt-2 text-primary-text" />
     );
   }
 
   return (
     <div
-      className={`absolute top-0 left-0 z-50 w-3/4 max-w-md transition ${focused ? "h-screen bg-background" : "bg-transparent"}`}
+      className={`absolute top-0 left-0 z-50 w-3/4 max-w-md transition ${focused ? "bg-transparent" : "bg-transparent"}`}
       onFocus={onFocus}
       onClick={onDismiss}
     >
       <div className="px-4 py-2">
         <input
-          className="w-full rounded-full border border-border bg-background p-2 pl-12 text-primary-text placeholder-secondary-text"
+          className="w-full rounded-full border-2 border-border bg-background p-3 pl-14 text-lg text-primary-text placeholder-secondary-text shadow-md focus:border-accent focus:outline-none transition-all"
           tabIndex={2}
           type="text"
           placeholder={t("search-placeholder")}
@@ -110,12 +171,14 @@ export default function RoomSelect({
         />
         {icon}
       </div>
-      <ul
-        className={`absolute bottom-0 left-0 right-0 top-14 overflow-y-auto px-4 py-2 ${focused ? "" : "hidden"}`}
-      >
-        {results.map((room, i) => {
-          return (
-            <li key={room.id}>
+      {focused && results.length > 0 && (
+        <div className="relative px-4">
+          <ul
+            className="mt-2 rounded-lg bg-background shadow-lg overflow-hidden border border-border"
+          >
+            {results.slice(0, 3).map((room, i) => {
+              return (
+                <li key={room.id}>
               <a
                 className="block cursor-pointer border-b-2 border-border p-2 hover:bg-highlight-background"
                 href={`/room/${room.id}`}
@@ -137,10 +200,12 @@ export default function RoomSelect({
                   </p>
                 )}
               </a>
-            </li>
-          );
-        })}
-      </ul>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
