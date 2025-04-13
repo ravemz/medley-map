@@ -1,4 +1,4 @@
-import React from "react";
+import React, { ReactNode } from "react";
 import {
   ChevronLeftIcon,
   MagnifyingGlassIcon,
@@ -32,16 +32,48 @@ export default function RoomSelect({
     onRoomSelected && onRoomSelected(room);
   };
 
+  // Helper function to highlight matched text
+  const highlightMatch = (text: string, query: string): ReactNode => {
+    if (!query) return text;
+    
+    const index = text.toLowerCase().indexOf(query.toLowerCase());
+    if (index === -1) return text;
+    
+    const before = text.substring(0, index);
+    const match = text.substring(index, index + query.length);
+    const after = text.substring(index + query.length);
+    
+    return (
+      <>
+        {before}
+        <span className="bg-yellow-200 font-semibold">{match}</span>
+        {after}
+      </>
+    );
+  };
+
   let results;
   if (query === "") {
     results = config.map.rooms.sort((a, b) => a.label.localeCompare(b.label));
   } else {
-    const fuse = new Fuse(config.map.rooms, {
-      keys: ["label", "aliases"],
-      ignoreLocation: true,
+    // Use substring matching that activates from the first character
+    results = config.map.rooms.filter((room) => {
+      const queryLower = query.toLowerCase();
+      
+      // Check if room label contains the query as a substring
+      if (room.label.toLowerCase().includes(queryLower)) {
+        return true;
+      }
+      
+      // Check if any room alias contains the query as a substring
+      if (room.aliases && room.aliases.some(alias => 
+        alias.toLowerCase().includes(queryLower)
+      )) {
+        return true;
+      }
+      
+      return false;
     });
-
-    results = fuse.search(query).map((result) => result.item);
   }
 
   let icon;
@@ -93,10 +125,15 @@ export default function RoomSelect({
                   onRoomClick(room);
                 }}
               >
-                <p>{room.label}</p>
+                <p>{highlightMatch(room.label, query)}</p>
                 {room.aliases && (
                   <p className="text-secondary-text">
-                    {room.aliases.join(", ")}
+                    {room.aliases.map((alias, i) => (
+                      <React.Fragment key={i}>
+                        {i > 0 && ", "}
+                        {highlightMatch(alias, query)}
+                      </React.Fragment>
+                    ))}
                   </p>
                 )}
               </a>

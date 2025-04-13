@@ -1,6 +1,8 @@
 import { Feature, MapBrowserEvent, Map as olMap, View } from "ol";
-import { Polygon } from "ol/geom";
+import { Polygon, Point } from "ol/geom";
 import { defaults } from "ol/interaction";
+import Draw from "ol/interaction/Draw";
+import Modify from "ol/interaction/Modify";
 import Translate from "ol/interaction/Translate";
 import ImageLayer from "ol/layer/Image.js";
 import VectorLayer from "ol/layer/Vector";
@@ -8,9 +10,12 @@ import "ol/ol.css";
 import Projection from "ol/proj/Projection.js";
 import Static from "ol/source/ImageStatic.js";
 import VectorSource from "ol/source/Vector";
-import { Fill, Stroke, Style } from "ol/style";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Fill, Stroke, Style, Circle as CircleStyle } from "ol/style";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Room, Config } from "./config.types";
+
+// Define the available edit modes
+type EditMode = "view" | "move" | "draw" | "rotate" | "resize";
 
 interface MapProps extends React.HTMLAttributes<HTMLDivElement> {
   config: Config;
@@ -40,33 +45,44 @@ export default function Map({
   const [mapDiv, setMapDiv] = useState<HTMLDivElement | null>(null);
   const [map, setMap] = useState<olMap | null>(null);
   const [selectedFeature, setSelectedFeature] = useState<Feature | null>(null);
-  const [editMode, setEditMode] = useState<boolean>(false);
+  const [mode, setMode] = useState<EditMode>("view");
   const [translateInteraction, setTranslateInteraction] = useState<Translate | null>(null);
+  const [drawInteraction, setDrawInteraction] = useState<Draw | null>(null);
+  const [modifyInteraction, setModifyInteraction] = useState<Modify | null>(null);
+  const [rotationAngle, setRotationAngle] = useState<number>(0);
+  const [newRoomName, setNewRoomName] = useState<string>("");
+  const [nextRoomId, setNextRoomId] = useState<number>(30); // Start from M-30
+  const vectorSourceRef = useRef<VectorSource | null>(null);
   
   // Create a stable callback for the map div ref
   const setMapDivRef = useCallback((node: HTMLDivElement | null) => {
     setMapDiv(node);
   }, []);
 
+  // Define a bright yellow color for better contrast on green/brown background
+  const YELLOW_COLOR = "#FFFF00";
+  // Define a bright red color for the main entry
+  const RED_COLOR = "#FF0000";
+
   const selectedStyle = useMemo(
     () =>
       new Style({
         stroke: new Stroke({
-          color: config.theme.accent,
+          color: YELLOW_COLOR,
           width: 4,
         }),
         fill: new Fill({
           color: "rgba(0, 0, 0, 0)",
         }),
       }),
-    [config.theme.accent],
+    [],
   );
 
   const unselectedStyle = useMemo(
     () =>
       new Style({
         stroke: new Stroke({
-          color: config.theme.accent,
+          color: YELLOW_COLOR,
           width: 2,
           lineDash: [0.1, 5],
         }),
@@ -74,7 +90,22 @@ export default function Map({
           color: "rgba(0, 0, 0, 0)",
         }),
       }),
-    [config.theme.accent],
+    [],
+  );
+
+  // Special style for the main entry - always highlighted in red
+  const mainEntryStyle = useMemo(
+    () =>
+      new Style({
+        stroke: new Stroke({
+          color: RED_COLOR,
+          width: 3,
+        }),
+        fill: new Fill({
+          color: "rgba(255, 0, 0, 0.1)",
+        }),
+      }),
+    [],
   );
 
   useEffect(() => {
@@ -102,12 +133,19 @@ export default function Map({
       });
 
       const markers = config.map.rooms.map((room) => {
-        return new Feature({
+        const feature = new Feature({
           geometry: new Polygon([
             room.area.map((coords) => [coords[0], height - coords[1]]),
           ]),
           room,
         });
+        
+        // Apply special style to main-entry
+        if (room.id === "main-entry") {
+          feature.setStyle(mainEntryStyle);
+        }
+        
+        return feature;
       });
       const markerSource = new VectorSource({
         features: markers,
@@ -115,7 +153,14 @@ export default function Map({
       });
       const markersLayer = new VectorLayer({
         source: markerSource,
-        style: unselectedStyle,
+        style: function(feature) {
+          // For main-entry, always use the mainEntryStyle
+          if (feature.get("room")?.id === "main-entry") {
+            return mainEntryStyle;
+          }
+          // For other features, use the default unselectedStyle
+          return unselectedStyle;
+        }
       });
 
       const map = new olMap({
@@ -217,26 +262,72 @@ export default function Map({
       .find(
         (f: { get: (arg0: string) => Room }) => f.get("room") === focusedRoom,
       );
+      
+    // Find the main entry feature
+    const mainEntry = vectorLayer
+      .getSource()!
+      .getFeatures()
+      .find(
+        (f: { get: (arg0: string) => Room }) => f.get("room")?.id === "main-entry",
+      );
+      
     if (focused != null) {
-      map.getView().fit(focused.getGeometry().getExtent(), {
-        duration: 100,
-        maxZoom: 3,
-      });
+      if (focused.get("room")?.id === "main-entry" || !mainEntry) {
+        // If the focused room is already the main entry or main entry doesn't exist,
+        // just zoom to the focused room
+        map.getView().fit(focused.getGeometry().getExtent(), {
+          duration: 300,
+          maxZoom: 3,
+        });
+      } else {
+        // Calculate a combined extent that includes both the focused room and main entry
+        const focusedExtent = focused.getGeometry().getExtent();
+        const mainEntryExtent = mainEntry.getGeometry().getExtent();
+        
+        // Create a combined extent
+        const combinedExtent = [
+          Math.min(focusedExtent[0], mainEntryExtent[0]),
+          Math.min(focusedExtent[1], mainEntryExtent[1]),
+          Math.max(focusedExtent[2], mainEntryExtent[2]),
+          Math.max(focusedExtent[3], mainEntryExtent[3]),
+        ];
+        
+        // Add some padding
+        const padding = 50;
+        const paddedExtent = [
+          combinedExtent[0] - padding,
+          combinedExtent[1] - padding,
+          combinedExtent[2] + padding,
+          combinedExtent[3] + padding,
+        ];
+        
+        // Fit the view to the combined extent
+        map.getView().fit(paddedExtent, {
+          duration: 500,
+          maxZoom: 2,
+        });
+      }
     }
   }, [map, selectedRoom, focusedRoom]);
 
   useEffect(() => {
-    selectedFeature?.setStyle(selectedStyle);
+    // Don't change the style of main-entry when selected
+    if (selectedFeature && selectedFeature.get("room")?.id !== "main-entry") {
+      selectedFeature.setStyle(selectedStyle);
+    }
 
     const lastSelected = selectedFeature;
     return function cleanup() {
-      lastSelected?.setStyle(unselectedStyle);
+      // Don't change the style of main-entry when deselected
+      if (lastSelected && lastSelected.get("room")?.id !== "main-entry") {
+        lastSelected.setStyle(unselectedStyle);
+      }
     };
-  }, [selectedFeature, selectedStyle, unselectedStyle]);
+  }, [selectedFeature, selectedStyle, unselectedStyle, mainEntryStyle]);
 
-  // Toggle edit mode
-  const toggleEditMode = () => {
-    setEditMode(!editMode);
+  // Set the current edit mode
+  const setEditMode = (newMode: EditMode) => {
+    setMode(newMode);
   };
 
   // Save the updated coordinates
@@ -253,94 +344,388 @@ export default function Map({
       
       // Convert back to the original coordinate system (y is flipped in OpenLayers)
       const height = map.getView().getProjection().getExtent()[3];
-      const originalCoords = coordinates.map(coord => [coord[0], height - coord[1]]);
+      // Remove the last point if it's the same as the first (OpenLayers adds this to close the polygon)
+      const filteredCoords = coordinates.length > 1 && 
+        coordinates[0][0] === coordinates[coordinates.length-1][0] && 
+        coordinates[0][1] === coordinates[coordinates.length-1][1] 
+          ? coordinates.slice(0, -1) 
+          : coordinates;
+      
+      const originalCoords = filteredCoords.map(coord => [Math.round(coord[0]), Math.round(height - coord[1])]);
       
       return {
         ...room,
-        area: originalCoords
+        area: originalCoords as [number, number][] // Preserve all points in the polygon
       };
     });
     
-    // Output the updated coordinates to console
-    // In a real application, you would save these to a database or file
-    console.log(JSON.stringify(updatedRooms, null, 2));
-    alert("Coordinates saved to console. Check the browser console.");
+    // Format the updated rooms for display
+    const formattedRooms = JSON.stringify(updatedRooms, null, 2);
+    
+    // Create a downloadable JSON file with the updated coordinates
+    const blob = new Blob([formattedRooms], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'updated_rooms.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    // Also output to console for debugging
+    console.log(formattedRooms);
+    alert("Coordinates saved! A JSON file with the updated coordinates has been downloaded.");
   };
 
-  // Add translate interaction when edit mode is enabled
+  // Create a new room from a drawn feature
+  const createRoomFromFeature = (feature: Feature) => {
+    if (!map) return;
+    
+    const geometry = feature.getGeometry() as Polygon;
+    let coordinates = geometry.getCoordinates()[0];
+    
+    // Remove the last point if it's the same as the first (OpenLayers adds this to close the polygon)
+    const filteredCoords = coordinates.length > 1 && 
+      coordinates[0][0] === coordinates[coordinates.length-1][0] && 
+      coordinates[0][1] === coordinates[coordinates.length-1][1] 
+        ? coordinates.slice(0, -1) 
+        : coordinates;
+    
+    // Convert to the original coordinate system (y is flipped in OpenLayers)
+    const height = map.getView().getProjection().getExtent()[3];
+    const originalCoords = filteredCoords.map(coord => [coord[0], height - coord[1]]);
+    
+    // Create a new room
+    const newRoom: Room = {
+      id: `m${nextRoomId}`,
+      label: newRoomName || `M-${nextRoomId}`,
+      aliases: [newRoomName || `M-${nextRoomId}`, `M${nextRoomId}`],
+      description: `\n          ${newRoomName || `M-${nextRoomId}`}\n        `,
+      area: originalCoords as [number, number][],
+    };
+    
+    // Increment the next room ID
+    setNextRoomId(nextRoomId + 1);
+    
+    // Add the room to the feature
+    feature.set('room', newRoom);
+    
+    // Reset the new room name
+    setNewRoomName("");
+    
+    return newRoom;
+  };
+
+  // Rotate the selected feature
+  const rotateFeature = (angle: number) => {
+    if (!selectedFeature || !map) return;
+    
+    const geometry = selectedFeature.getGeometry() as Polygon;
+    const center = geometry.getInteriorPoint().getCoordinates();
+    
+    // Create a new rotated geometry
+    const coordinates = geometry.getCoordinates()[0];
+    const rotatedCoordinates = coordinates.map(coord => {
+      const dx = coord[0] - center[0];
+      const dy = coord[1] - center[1];
+      const cos = Math.cos(angle * Math.PI / 180);
+      const sin = Math.sin(angle * Math.PI / 180);
+      
+      return [
+        center[0] + dx * cos - dy * sin,
+        center[1] + dx * sin + dy * cos
+      ];
+    });
+    
+    // Update the geometry
+    geometry.setCoordinates([rotatedCoordinates]);
+    
+    // Update the rotation angle
+    setRotationAngle(angle);
+  };
+
+  // Handle interactions based on the current mode
   useEffect(() => {
     if (!map) return;
     
-    // Clean up any existing translate interaction
+    // Clean up any existing interactions
     if (translateInteraction) {
       map.removeInteraction(translateInteraction);
       setTranslateInteraction(null);
     }
     
-    // Only add the interaction if in edit mode
-    if (editMode) {
-      const vectorLayer = map.getLayers().getArray()[1] as VectorLayer;
-      const translate = new Translate({
-        layers: [vectorLayer]
-      });
-      
-      // Set up event listeners for the translate interaction
-      const handleTranslateStart = (event: any) => {
-        // Optional: You could add visual feedback when translation starts
-        console.log('Translation started');
-      };
-      
-      const handleTranslateEnd = (event: any) => {
-        // Optional: You could add visual feedback when translation ends
-        console.log('Translation ended');
-      };
-      
-      // Add event listeners
-      translate.on('translatestart', handleTranslateStart);
-      translate.on('translateend', handleTranslateEnd);
-      
-      // Add the interaction to the map
-      map.addInteraction(translate);
-      
-      // Store the interaction in state
-      setTranslateInteraction(translate);
-      
-      // Clean up function
-      return () => {
-        // Remove event listeners
-        translate.un('translatestart', handleTranslateStart);
-        translate.un('translateend', handleTranslateEnd);
-        
-        // Remove the interaction from the map
-        map.removeInteraction(translate);
-      };
+    if (drawInteraction) {
+      map.removeInteraction(drawInteraction);
+      setDrawInteraction(null);
     }
     
-    // No cleanup needed if we didn't add an interaction
-    return undefined;
-  }, [map, editMode]); // Don't include translateInteraction in dependencies
+    if (modifyInteraction) {
+      map.removeInteraction(modifyInteraction);
+      setModifyInteraction(null);
+    }
+    
+    const vectorLayer = map.getLayers().getArray()[1] as VectorLayer;
+    const vectorSource = vectorLayer.getSource() as VectorSource;
+    vectorSourceRef.current = vectorSource;
+    
+    // Add the appropriate interaction based on the current mode
+    switch (mode) {
+      case "move":
+        // Add translate interaction
+        const translate = new Translate({
+          layers: [vectorLayer]
+        });
+        
+        // Set up event listeners for the translate interaction
+        const handleTranslateStart = (event: any) => {
+          console.log('Translation started');
+        };
+        
+        const handleTranslateEnd = (event: any) => {
+          console.log('Translation ended');
+        };
+        
+        // Add event listeners
+        translate.on('translatestart', handleTranslateStart);
+        translate.on('translateend', handleTranslateEnd);
+        
+        // Add the interaction to the map
+        map.addInteraction(translate);
+        
+        // Store the interaction in state
+        setTranslateInteraction(translate);
+        break;
+        
+      case "draw":
+        // Add draw interaction for polygons with multiple points
+        const draw = new Draw({
+          source: vectorSource,
+          type: 'Polygon',
+          // No maxPoints constraint to allow any number of points
+          style: new Style({
+            stroke: new Stroke({
+              color: config.theme.accent,
+              width: 2,
+            }),
+            fill: new Fill({
+              color: 'rgba(255, 100, 100, 0.2)',
+            }),
+            // Add point style to show vertices while drawing
+            image: new CircleStyle({
+              radius: 5,
+              fill: new Fill({
+                color: config.theme.accent,
+              }),
+            }),
+          }),
+        });
+        
+        // Handle the drawend event
+        draw.on('drawend', (event) => {
+          const feature = event.feature;
+          const newRoom = createRoomFromFeature(feature);
+          console.log('New room created:', newRoom);
+        });
+        
+        // Add the interaction to the map
+        map.addInteraction(draw);
+        
+        // Store the interaction in state
+        setDrawInteraction(draw);
+        break;
+        
+      case "resize":
+        // Add modify interaction for resizing
+        const modify = new Modify({
+          source: vectorSource,
+        });
+        
+        // Add the interaction to the map
+        map.addInteraction(modify);
+        
+        // Store the interaction in state
+        setModifyInteraction(modify);
+        break;
+        
+      case "rotate":
+        // For rotation mode, we'll use a custom UI instead of an interaction
+        // Reset rotation angle when entering rotate mode
+        setRotationAngle(0);
+        break;
+        
+      default:
+        // No interaction for view mode
+        break;
+    }
+    
+    // Clean up function
+    return () => {
+      if (translateInteraction) {
+        // Just remove the interaction, no need to manually remove event listeners
+        map.removeInteraction(translateInteraction);
+      }
+      
+      if (drawInteraction) {
+        map.removeInteraction(drawInteraction);
+      }
+      
+      if (modifyInteraction) {
+        map.removeInteraction(modifyInteraction);
+      }
+    };
+  }, [map, mode, selectedFeature, nextRoomId, newRoomName]);
+
+  // Get the number of points in a feature's geometry
+  const getPointCount = (feature: Feature | null): number => {
+    if (!feature) return 0;
+    
+    const geometry = feature.getGeometry() as Polygon;
+    if (!geometry) return 0;
+    
+    const coordinates = geometry.getCoordinates()[0];
+    // Subtract 1 if the last point is the same as the first (closing point)
+    return coordinates.length > 1 && 
+      coordinates[0][0] === coordinates[coordinates.length-1][0] && 
+      coordinates[0][1] === coordinates[coordinates.length-1][1] 
+        ? coordinates.length - 1 
+        : coordinates.length;
+  };
 
   return (
     <>
       <div ref={setMapDivRef} {...divProps} />
-      <div className="absolute top-4 right-4 flex flex-col gap-2">
+      <div className="absolute top-4 right-4 flex flex-col gap-2 bg-white p-4 rounded-lg shadow-lg border border-gray-200">
+        <h3 className="text-lg font-semibold mb-2">Edit Mode</h3>
+        <div className="flex flex-row gap-2 mb-2">
+          <button 
+            onClick={() => setEditMode("view")}
+            className="flex-1 px-4 py-2 rounded shadow-md hover:bg-gray-100 transition-colors"
+            style={{ 
+              backgroundColor: mode === "view" ? config.theme.accent : 'white',
+              color: mode === "view" ? 'white' : config.theme["primary-text"]
+            }}
+          >
+            View
+          </button>
+          <button 
+            onClick={() => setEditMode("move")}
+            className="flex-1 px-4 py-2 rounded shadow-md hover:bg-gray-100 transition-colors"
+            style={{ 
+              backgroundColor: mode === "move" ? config.theme.accent : 'white',
+              color: mode === "move" ? 'white' : config.theme["primary-text"]
+            }}
+          >
+            Move
+          </button>
+        </div>
+        
+        {mode === "move" && (
+          <div className="bg-gray-100 p-3 rounded mb-2 text-sm">
+            <p className="mb-1"><strong>Instructions:</strong></p>
+            <ol className="list-decimal pl-5 space-y-1">
+              <li>Click on a polygon to select it</li>
+              <li>Drag the polygon to move it</li>
+              <li>Click "Save Coordinates" when done</li>
+            </ol>
+          </div>
+        )}
+        
+        <div className="flex flex-row gap-2 mb-2">
+          <button 
+            onClick={() => setEditMode("draw")}
+            className="flex-1 px-4 py-2 rounded shadow-md hover:bg-gray-100 transition-colors"
+            style={{ 
+              backgroundColor: mode === "draw" ? config.theme.accent : 'white',
+              color: mode === "draw" ? 'white' : config.theme["primary-text"]
+            }}
+          >
+            Draw
+          </button>
+          <button 
+            onClick={() => setEditMode("resize")}
+            className="flex-1 px-4 py-2 rounded shadow-md hover:bg-gray-100 transition-colors"
+            style={{ 
+              backgroundColor: mode === "resize" ? config.theme.accent : 'white',
+              color: mode === "resize" ? 'white' : config.theme["primary-text"]
+            }}
+          >
+            Resize
+          </button>
+        </div>
+        
         <button 
-          onClick={toggleEditMode}
-          className="bg-white px-4 py-2 rounded shadow-md hover:bg-gray-100 transition-colors"
+          onClick={() => setEditMode("rotate")}
+          className="px-4 py-2 rounded shadow-md hover:bg-gray-100 transition-colors mb-2"
           style={{ 
-            backgroundColor: editMode ? config.theme.accent : 'white',
-            color: editMode ? 'white' : config.theme["primary-text"]
+            backgroundColor: mode === "rotate" ? config.theme.accent : 'white',
+            color: mode === "rotate" ? 'white' : config.theme["primary-text"]
           }}
+          disabled={!selectedFeature}
         >
-          {editMode ? "Exit Edit Mode" : "Edit Mode"}
+          Rotate
         </button>
-        {editMode && (
+        
+        {mode === "draw" && (
+          <div className="mb-2 space-y-2">
+            <input
+              type="text"
+              placeholder="New Room Name"
+              value={newRoomName}
+              onChange={(e) => setNewRoomName(e.target.value)}
+              className="w-full px-4 py-2 rounded shadow-md border border-gray-200"
+            />
+            <div className="bg-gray-100 p-3 rounded text-sm">
+              <p><strong>Draw Mode:</strong> Click to add points. Double-click to finish.</p>
+              <p>You can create polygons with any number of points.</p>
+            </div>
+          </div>
+        )}
+        
+        {mode === "rotate" && selectedFeature && (
+          <div className="mb-2">
+            <div className="flex flex-row items-center gap-2">
+              <button 
+                onClick={() => rotateFeature(rotationAngle - 5)}
+                className="bg-white px-4 py-2 rounded shadow-md hover:bg-gray-100 transition-colors"
+              >
+                -5°
+              </button>
+              <input
+                type="range"
+                min="-180"
+                max="180"
+                value={rotationAngle}
+                onChange={(e) => rotateFeature(parseInt(e.target.value))}
+                className="flex-grow"
+              />
+              <button 
+                onClick={() => rotateFeature(rotationAngle + 5)}
+                className="bg-white px-4 py-2 rounded shadow-md hover:bg-gray-100 transition-colors"
+              >
+                +5°
+              </button>
+            </div>
+            <div className="text-center mt-1">
+              {rotationAngle}°
+            </div>
+          </div>
+        )}
+        
+        {mode !== "view" && (
           <button 
             onClick={saveCoordinates}
-            className="bg-white px-4 py-2 rounded shadow-md hover:bg-gray-100 transition-colors"
+            className="bg-green-600 text-white px-4 py-2 rounded shadow-md hover:bg-green-700 transition-colors font-semibold"
           >
             Save Coordinates
           </button>
+        )}
+        
+        {selectedFeature && (
+          <div className="mt-2 p-2 bg-gray-100 rounded text-sm">
+            <p><strong>Selected:</strong> {(selectedFeature.get("room") as Room)?.label}</p>
+            <p><strong>Points:</strong> {getPointCount(selectedFeature)}</p>
+          </div>
         )}
       </div>
     </>

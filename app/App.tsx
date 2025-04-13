@@ -9,9 +9,16 @@ import { Room } from "./config.types";
 import { set } from "ol/transform";
 
 export default function App({ roomId }: { roomId?: string }) {
-  const room = config.map.rooms.find((room) => room.id === roomId);
-  const [selectedRoom, setSelectedRoom] = useState<Room | undefined>(room);
-  const [focusedRoom, setFocusedRoom] = useState<Room | undefined>(undefined);
+  // Find the main entry room to use as default
+  const mainEntryRoom = config.map.rooms.find((room) => room.id === "main-entry");
+  
+  // If roomId is provided, use that room, otherwise default to main entry
+  const initialRoom = roomId 
+    ? config.map.rooms.find((room) => room.id === roomId) 
+    : mainEntryRoom;
+    
+  const [selectedRoom, setSelectedRoom] = useState<Room | undefined>(initialRoom);
+  const [focusedRoom, setFocusedRoom] = useState<Room | undefined>(initialRoom);
 
   const [infoPanelExpanded, setInfoPanelExpanded] = useState(() => {
     return Boolean(
