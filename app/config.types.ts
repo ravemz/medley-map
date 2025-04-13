@@ -60,6 +60,11 @@ export interface Config {
     accent: string;
 
     /**
+     * Highlight color used for search result highlighting.
+     */
+    highlight: string;
+
+    /**
      * Disabled button color.
      */
     disabled: string;

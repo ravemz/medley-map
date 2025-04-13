@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Map from "./Map";
 import RoomSelect from "./RoomSelect";
 import InfoPanel from "./InfoPanel";
@@ -19,6 +19,16 @@ export default function App({ roomId }: { roomId?: string }) {
     
   const [selectedRoom, setSelectedRoom] = useState<Room | undefined>(initialRoom);
   const [focusedRoom, setFocusedRoom] = useState<Room | undefined>(initialRoom);
+
+  // Check for admin=true in URL parameters
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  
+  useEffect(() => {
+    // Check URL parameters for admin=true
+    const urlParams = new URLSearchParams(window.location.search);
+    const adminParam = urlParams.get('admin');
+    setIsAdmin(adminParam === 'true');
+  }, []);
 
   const [infoPanelExpanded, setInfoPanelExpanded] = useState(() => {
     return Boolean(
@@ -70,6 +80,7 @@ export default function App({ roomId }: { roomId?: string }) {
         focusedRoom={focusedRoom}
         onRoomSelected={onRoomSelectedFromMap}
         onPan={onPan}
+        isAdmin={isAdmin}
       />
       <RoomSelect config={config} onRoomSelected={onRoomSelectedFromDropdown} />
       <InfoPanel

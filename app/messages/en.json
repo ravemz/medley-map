@@ -1,7 +1,7 @@
 {
   "page": {
-    "title": "{eventName} venue map",
-    "description": "Interactive map of the {eventName} venue"
+    "title": "{eventName} Community Map",
+    "description": "Interactive map of the {eventName} Community"
   },
   "room-select": {
     "search-placeholder": "Search for a house number..."
@@ -10,6 +10,7 @@
     "back": "Back to map",
     "title": "About",
     "powered-by": "Powered by <GitHubLink></GitHubLink>.",
-    "attribution-heading": "The following resources have been kindly made available to us:"
+    "inspired-by": "Inspired by <GitHubLink></GitHubLink>.",
+    "attribution-heading": ""
   }
 }

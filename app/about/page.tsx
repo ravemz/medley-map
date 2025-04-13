@@ -8,18 +8,21 @@ export default function About() {
 
   let attributions = <></>;
   if (config.attributions) {
-    attributions = (
-      <>
-        <p>{t("attribution-heading")}</p>
-        <ul className="list-disc">
-          {config.attributions.map((attribution, i) => (
-            <li key={i}>
-              <Markdown>{attribution}</Markdown>
-            </li>
-          ))}
-        </ul>
-      </>
-    );
+    const attributionHeading = t("attribution-heading");
+    if (attributionHeading && attributionHeading.trim() !== "") {
+      attributions = (
+        <>
+          <p>{attributionHeading}</p>
+          <ul className="list-disc">
+            {config.attributions.map((attribution, i) => (
+              <li key={i}>
+                <Markdown>{attribution}</Markdown>
+              </li>
+            ))}
+          </ul>
+        </>
+      );
+    }
   }
 
   return (
@@ -32,7 +35,14 @@ export default function About() {
       <p className="border-t-2 border-border pt-4">
         {t.rich("powered-by", {
           GitHubLink: () => (
-            <a href="https://github.com/aJanuary/concarte/">ConCarte</a>
+            <a href="https://github.com/ravemz/medley-map">Medley Map</a>
+          ),
+        })}
+      </p>
+      <p>
+        {t.rich("inspired-by", {
+          GitHubLink: () => (
+            <a href="https://github.com/aJanuary/concarte">concarte</a>
           ),
         })}
       </p>

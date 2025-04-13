@@ -46,7 +46,7 @@ export default function RoomSelect({
     return (
       <>
         {before}
-        <span className="bg-yellow-200 font-semibold">{match}</span>
+        <span className="bg-highlight font-semibold">{match}</span>
         {after}
       </>
     );

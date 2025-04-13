@@ -17,6 +17,7 @@ const config: Config = {
     "primary-text": "rgb(43, 43, 43)",
     "secondary-text": "rgb(100 116 139)",
     accent: "rgb(255,100,100)",
+    "highlight": "#FFF9C4",  // Light yellow color
     disabled: "#cbd5e1",
   },
   map: {

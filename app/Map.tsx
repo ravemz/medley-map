@@ -24,6 +24,7 @@ interface MapProps extends React.HTMLAttributes<HTMLDivElement> {
   onRoomSelected?: (room?: Room) => void;
   onInfoSelected?: () => void;
   onPan?: () => void;
+  isAdmin?: boolean; // New prop to control edit mode visibility
 }
 
 async function decodeAllImages(src: string) {
@@ -40,6 +41,7 @@ export default function Map({
   onRoomSelected,
   onInfoSelected,
   onPan,
+  isAdmin,
   ...divProps
 }: MapProps) {
   const [mapDiv, setMapDiv] = useState<HTMLDivElement | null>(null);
@@ -59,7 +61,7 @@ export default function Map({
     setMapDiv(node);
   }, []);
 
-  // Define a bright yellow color for better contrast on green/brown background
+  // Define a bright green color for better contrast on green/brown background
   const YELLOW_COLOR = "#FFFF00";
   // Define a bright red color for the main entry
   const RED_COLOR = "#FF0000";
@@ -595,139 +597,142 @@ export default function Map({
   return (
     <>
       <div ref={setMapDivRef} {...divProps} />
-      <div className="absolute top-4 right-4 flex flex-col gap-2 bg-white p-4 rounded-lg shadow-lg border border-gray-200">
-        <h3 className="text-lg font-semibold mb-2">Edit Mode</h3>
-        <div className="flex flex-row gap-2 mb-2">
-          <button 
-            onClick={() => setEditMode("view")}
-            className="flex-1 px-4 py-2 rounded shadow-md hover:bg-gray-100 transition-colors"
-            style={{ 
-              backgroundColor: mode === "view" ? config.theme.accent : 'white',
-              color: mode === "view" ? 'white' : config.theme["primary-text"]
-            }}
-          >
-            View
-          </button>
-          <button 
-            onClick={() => setEditMode("move")}
-            className="flex-1 px-4 py-2 rounded shadow-md hover:bg-gray-100 transition-colors"
-            style={{ 
-              backgroundColor: mode === "move" ? config.theme.accent : 'white',
-              color: mode === "move" ? 'white' : config.theme["primary-text"]
-            }}
-          >
-            Move
-          </button>
-        </div>
-        
-        {mode === "move" && (
-          <div className="bg-gray-100 p-3 rounded mb-2 text-sm">
-            <p className="mb-1"><strong>Instructions:</strong></p>
-            <ol className="list-decimal pl-5 space-y-1">
-              <li>Click on a polygon to select it</li>
-              <li>Drag the polygon to move it</li>
-              <li>Click "Save Coordinates" when done</li>
-            </ol>
+      {/* Only show edit controls when isAdmin is true */}
+      {isAdmin && (
+        <div className="absolute top-4 right-4 flex flex-col gap-2 bg-white p-4 rounded-lg shadow-lg border border-gray-200">
+          <h3 className="text-lg font-semibold mb-2">Edit Mode</h3>
+          <div className="flex flex-row gap-2 mb-2">
+            <button 
+              onClick={() => setEditMode("view")}
+              className="flex-1 px-4 py-2 rounded shadow-md hover:bg-gray-100 transition-colors"
+              style={{ 
+                backgroundColor: mode === "view" ? config.theme.accent : 'white',
+                color: mode === "view" ? 'white' : config.theme["primary-text"]
+              }}
+            >
+              View
+            </button>
+            <button 
+              onClick={() => setEditMode("move")}
+              className="flex-1 px-4 py-2 rounded shadow-md hover:bg-gray-100 transition-colors"
+              style={{ 
+                backgroundColor: mode === "move" ? config.theme.accent : 'white',
+                color: mode === "move" ? 'white' : config.theme["primary-text"]
+              }}
+            >
+              Move
+            </button>
           </div>
-        )}
-        
-        <div className="flex flex-row gap-2 mb-2">
-          <button 
-            onClick={() => setEditMode("draw")}
-            className="flex-1 px-4 py-2 rounded shadow-md hover:bg-gray-100 transition-colors"
-            style={{ 
-              backgroundColor: mode === "draw" ? config.theme.accent : 'white',
-              color: mode === "draw" ? 'white' : config.theme["primary-text"]
-            }}
-          >
-            Draw
-          </button>
-          <button 
-            onClick={() => setEditMode("resize")}
-            className="flex-1 px-4 py-2 rounded shadow-md hover:bg-gray-100 transition-colors"
-            style={{ 
-              backgroundColor: mode === "resize" ? config.theme.accent : 'white',
-              color: mode === "resize" ? 'white' : config.theme["primary-text"]
-            }}
-          >
-            Resize
-          </button>
-        </div>
-        
-        <button 
-          onClick={() => setEditMode("rotate")}
-          className="px-4 py-2 rounded shadow-md hover:bg-gray-100 transition-colors mb-2"
-          style={{ 
-            backgroundColor: mode === "rotate" ? config.theme.accent : 'white',
-            color: mode === "rotate" ? 'white' : config.theme["primary-text"]
-          }}
-          disabled={!selectedFeature}
-        >
-          Rotate
-        </button>
-        
-        {mode === "draw" && (
-          <div className="mb-2 space-y-2">
-            <input
-              type="text"
-              placeholder="New Room Name"
-              value={newRoomName}
-              onChange={(e) => setNewRoomName(e.target.value)}
-              className="w-full px-4 py-2 rounded shadow-md border border-gray-200"
-            />
-            <div className="bg-gray-100 p-3 rounded text-sm">
-              <p><strong>Draw Mode:</strong> Click to add points. Double-click to finish.</p>
-              <p>You can create polygons with any number of points.</p>
+          
+          {mode === "move" && (
+            <div className="bg-gray-100 p-3 rounded mb-2 text-sm">
+              <p className="mb-1"><strong>Instructions:</strong></p>
+              <ol className="list-decimal pl-5 space-y-1">
+                <li>Click on a polygon to select it</li>
+                <li>Drag the polygon to move it</li>
+                <li>Click "Save Coordinates" when done</li>
+              </ol>
             </div>
+          )}
+          
+          <div className="flex flex-row gap-2 mb-2">
+            <button 
+              onClick={() => setEditMode("draw")}
+              className="flex-1 px-4 py-2 rounded shadow-md hover:bg-gray-100 transition-colors"
+              style={{ 
+                backgroundColor: mode === "draw" ? config.theme.accent : 'white',
+                color: mode === "draw" ? 'white' : config.theme["primary-text"]
+              }}
+            >
+              Draw
+            </button>
+            <button 
+              onClick={() => setEditMode("resize")}
+              className="flex-1 px-4 py-2 rounded shadow-md hover:bg-gray-100 transition-colors"
+              style={{ 
+                backgroundColor: mode === "resize" ? config.theme.accent : 'white',
+                color: mode === "resize" ? 'white' : config.theme["primary-text"]
+              }}
+            >
+              Resize
+            </button>
           </div>
-        )}
-        
-        {mode === "rotate" && selectedFeature && (
-          <div className="mb-2">
-            <div className="flex flex-row items-center gap-2">
-              <button 
-                onClick={() => rotateFeature(rotationAngle - 5)}
-                className="bg-white px-4 py-2 rounded shadow-md hover:bg-gray-100 transition-colors"
-              >
-                -5°
-              </button>
+          
+          <button 
+            onClick={() => setEditMode("rotate")}
+            className="px-4 py-2 rounded shadow-md hover:bg-gray-100 transition-colors mb-2"
+            style={{ 
+              backgroundColor: mode === "rotate" ? config.theme.accent : 'white',
+              color: mode === "rotate" ? 'white' : config.theme["primary-text"]
+            }}
+            disabled={!selectedFeature}
+          >
+            Rotate
+          </button>
+          
+          {mode === "draw" && (
+            <div className="mb-2 space-y-2">
               <input
-                type="range"
-                min="-180"
-                max="180"
-                value={rotationAngle}
-                onChange={(e) => rotateFeature(parseInt(e.target.value))}
-                className="flex-grow"
+                type="text"
+                placeholder="New Room Name"
+                value={newRoomName}
+                onChange={(e) => setNewRoomName(e.target.value)}
+                className="w-full px-4 py-2 rounded shadow-md border border-gray-200"
               />
-              <button 
-                onClick={() => rotateFeature(rotationAngle + 5)}
-                className="bg-white px-4 py-2 rounded shadow-md hover:bg-gray-100 transition-colors"
-              >
-                +5°
-              </button>
+              <div className="bg-gray-100 p-3 rounded text-sm">
+                <p><strong>Draw Mode:</strong> Click to add points. Double-click to finish.</p>
+                <p>You can create polygons with any number of points.</p>
+              </div>
             </div>
-            <div className="text-center mt-1">
-              {rotationAngle}°
+          )}
+          
+          {mode === "rotate" && selectedFeature && (
+            <div className="mb-2">
+              <div className="flex flex-row items-center gap-2">
+                <button 
+                  onClick={() => rotateFeature(rotationAngle - 5)}
+                  className="bg-white px-4 py-2 rounded shadow-md hover:bg-gray-100 transition-colors"
+                >
+                  -5°
+                </button>
+                <input
+                  type="range"
+                  min="-180"
+                  max="180"
+                  value={rotationAngle}
+                  onChange={(e) => rotateFeature(parseInt(e.target.value))}
+                  className="flex-grow"
+                />
+                <button 
+                  onClick={() => rotateFeature(rotationAngle + 5)}
+                  className="bg-white px-4 py-2 rounded shadow-md hover:bg-gray-100 transition-colors"
+                >
+                  +5°
+                </button>
+              </div>
+              <div className="text-center mt-1">
+                {rotationAngle}°
+              </div>
             </div>
-          </div>
-        )}
-        
-        {mode !== "view" && (
-          <button 
-            onClick={saveCoordinates}
-            className="bg-green-600 text-white px-4 py-2 rounded shadow-md hover:bg-green-700 transition-colors font-semibold"
-          >
-            Save Coordinates
-          </button>
-        )}
-        
-        {selectedFeature && (
-          <div className="mt-2 p-2 bg-gray-100 rounded text-sm">
-            <p><strong>Selected:</strong> {(selectedFeature.get("room") as Room)?.label}</p>
-            <p><strong>Points:</strong> {getPointCount(selectedFeature)}</p>
-          </div>
-        )}
-      </div>
+          )}
+          
+          {mode !== "view" && (
+            <button 
+              onClick={saveCoordinates}
+              className="bg-green-600 text-white px-4 py-2 rounded shadow-md hover:bg-green-700 transition-colors font-semibold"
+            >
+              Save Coordinates
+            </button>
+          )}
+          
+          {selectedFeature && (
+            <div className="mt-2 p-2 bg-gray-100 rounded text-sm">
+              <p><strong>Selected:</strong> {(selectedFeature.get("room") as Room)?.label}</p>
+              <p><strong>Points:</strong> {getPointCount(selectedFeature)}</p>
+            </div>
+          )}
+        </div>
+      )}
     </>
   );
 }
