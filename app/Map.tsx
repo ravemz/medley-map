@@ -630,7 +630,7 @@ export default function Map({
               <ol className="list-decimal pl-5 space-y-1">
                 <li>Click on a polygon to select it</li>
                 <li>Drag the polygon to move it</li>
-                <li>Click "Save Coordinates" when done</li>
+                <li>Click &quot;Save Coordinates&quot; when done</li>
               </ol>
             </div>
           )}
