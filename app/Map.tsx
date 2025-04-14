@@ -16,7 +16,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Room, Config } from "./config.types";
 
 // Define the available edit modes
-type EditMode = "view" | "move" | "draw" | "rotate" | "resize";
+type EditMode = "view" | "move" | "draw" | "resize";
 
 interface MapProps extends React.HTMLAttributes<HTMLDivElement> {
   config: Config;
@@ -52,7 +52,6 @@ export default function Map({
   const [translateInteraction, setTranslateInteraction] = useState<Translate | null>(null);
   const [drawInteraction, setDrawInteraction] = useState<Draw | null>(null);
   const [modifyInteraction, setModifyInteraction] = useState<Modify | null>(null);
-  const [rotationAngle, setRotationAngle] = useState<number>(0);
   const [newRoomName, setNewRoomName] = useState<string>("");
   const [nextRoomId, setNextRoomId] = useState<number>(30); // Start from M-30
   const vectorSourceRef = useRef<VectorSource | null>(null);
@@ -427,33 +426,6 @@ export default function Map({
     return newRoom;
   };
 
-  // Rotate the selected feature
-  const rotateFeature = (angle: number) => {
-    if (!selectedFeature || !map) return;
-    
-    const geometry = selectedFeature.getGeometry() as Polygon;
-    const center = geometry.getInteriorPoint().getCoordinates();
-    
-    // Create a new rotated geometry
-    const coordinates = geometry.getCoordinates()[0];
-    const rotatedCoordinates = coordinates.map(coord => {
-      const dx = coord[0] - center[0];
-      const dy = coord[1] - center[1];
-      const cos = Math.cos(angle * Math.PI / 180);
-      const sin = Math.sin(angle * Math.PI / 180);
-      
-      return [
-        center[0] + dx * cos - dy * sin,
-        center[1] + dx * sin + dy * cos
-      ];
-    });
-    
-    // Update the geometry
-    geometry.setCoordinates([rotatedCoordinates]);
-    
-    // Update the rotation angle
-    setRotationAngle(angle);
-  };
 
   // Handle interactions based on the current mode
   useEffect(() => {
@@ -558,12 +530,6 @@ export default function Map({
         setModifyInteraction(modify);
         break;
         
-      case "rotate":
-        // For rotation mode, we'll use a custom UI instead of an interaction
-        // Reset rotation angle when entering rotate mode
-        setRotationAngle(0);
-        break;
-        
       default:
         // No interaction for view mode
         break;
@@ -666,18 +632,6 @@ export default function Map({
             </button>
           </div>
           
-          <button 
-            onClick={() => setEditMode("rotate")}
-            className="px-4 py-2 rounded shadow-md hover:bg-gray-100 transition-colors mb-2"
-            style={{ 
-              backgroundColor: mode === "rotate" ? config.theme.accent : 'white',
-              color: mode === "rotate" ? 'white' : config.theme["primary-text"]
-            }}
-            disabled={!selectedFeature}
-          >
-            Rotate
-          </button>
-          
           {mode === "draw" && (
             <div className="mb-2 space-y-2">
               <input
@@ -690,36 +644,6 @@ export default function Map({
               <div className="bg-gray-100 p-3 rounded text-sm">
                 <p><strong>Draw Mode:</strong> Click to add points. Double-click to finish.</p>
                 <p>You can create polygons with any number of points.</p>
-              </div>
-            </div>
-          )}
-          
-          {mode === "rotate" && selectedFeature && (
-            <div className="mb-2">
-              <div className="flex flex-row items-center gap-2">
-                <button 
-                  onClick={() => rotateFeature(rotationAngle - 5)}
-                  className="bg-white px-4 py-2 rounded shadow-md hover:bg-gray-100 transition-colors"
-                >
-                  -5°
-                </button>
-                <input
-                  type="range"
-                  min="-180"
-                  max="180"
-                  value={rotationAngle}
-                  onChange={(e) => rotateFeature(parseInt(e.target.value))}
-                  className="flex-grow"
-                />
-                <button 
-                  onClick={() => rotateFeature(rotationAngle + 5)}
-                  className="bg-white px-4 py-2 rounded shadow-md hover:bg-gray-100 transition-colors"
-                >
-                  +5°
-                </button>
-              </div>
-              <div className="text-center mt-1">
-                {rotationAngle}°
               </div>
             </div>
           )}
