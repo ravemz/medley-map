@@ -85,6 +85,73 @@ export interface Config {
 
 export interface Map {}
 
+/**
+ * Configuration for road paths and navigation.
+ */
+export interface RoadConfig {
+  /**
+   * All paths in the map.
+   */
+  paths: {
+    /**
+     * Main paths that run through the community.
+     */
+    main: MainPath[];
+    
+    /**
+     * Lanes that connect main paths to individual houses.
+     */
+    lanes: Lane[];
+  }
+}
+
+/**
+ * A main path running through the community.
+ */
+export interface MainPath {
+  /**
+   * Unique identifier for the path.
+   */
+  id: string;
+  
+  /**
+   * Array of waypoints that define the path.
+   * Each waypoint is a coordinate pair [x, y].
+   */
+  waypoints: [number, number][];
+}
+
+/**
+ * A lane connecting a main path to a house.
+ */
+export interface Lane {
+  /**
+   * Unique identifier for the lane.
+   */
+  id: string;
+  
+  /**
+   * ID of the room/house this lane connects to.
+   */
+  connectsTo: string;
+  
+  /**
+   * ID of the main path this lane connects from.
+   */
+  connectsFrom: string;
+  
+  /**
+   * Point on the main path where this lane connects.
+   */
+  connectionPoint: [number, number];
+  
+  /**
+   * Array of waypoints that define the lane.
+   * Each waypoint is a coordinate pair [x, y].
+   */
+  waypoints: [number, number][];
+}
+
 export interface Room {
   /**
    * Unique identififer for the room. Appears in the URL.
