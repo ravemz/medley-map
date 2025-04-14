@@ -49,7 +49,7 @@ export default function InfoPanel({
     }
 
     panel = (
-      <div className="relative bg-background p-4 pt-6 text-left shadow-top">
+      <div className="relative bg-background p-4 pt-6 text-left shadow-top w-full">
         <header
           className={`${expanded && room.description ? "border-1 border-b border-border pb-2" : ""} ${room.description ? "cursor-pointer" : ""}`}
           onClick={handlePanelClick}
@@ -88,7 +88,7 @@ export default function InfoPanel({
   const t = useTranslations();
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 text-right">
+    <div className="absolute bottom-0 left-0 right-0 text-right z-20">
       <div className="m-2 inline-block rounded border border-border bg-background opacity-75 shadow-xl hover:opacity-100">
         <a href="/about" className="inline-block p-2">
           {t("about.title")}

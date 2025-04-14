@@ -76,7 +76,7 @@ export default function App({ roomId }: { roomId?: string }) {
       <div className="z-10">
         <RoomSelect config={config} onRoomSelected={onRoomSelectedFromDropdown} />
       </div>
-      <div className="flex-grow relative">
+      <div className="flex-grow relative min-h-[70vh]">
         <Map
           className="h-full w-full"
           config={config}
