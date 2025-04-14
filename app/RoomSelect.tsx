@@ -156,7 +156,7 @@ export default function RoomSelect({
 
   return (
     <div
-      className={`absolute top-0 left-0 z-50 w-3/4 max-w-md transition ${focused ? "bg-transparent" : "bg-transparent"}`}
+      className={`w-full md:w-3/4 max-w-md transition ${focused ? "bg-transparent" : "bg-transparent"}`}
       onFocus={onFocus}
       onClick={onDismiss}
     >

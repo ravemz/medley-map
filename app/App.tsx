@@ -72,24 +72,28 @@ export default function App({ roomId }: { roomId?: string }) {
   };
 
   return (
-    <main>
-      <Map
-        className="h-screen w-screen"
-        config={config}
-        selectedRoom={selectedRoom}
-        focusedRoom={focusedRoom}
-        onRoomSelected={onRoomSelectedFromMap}
-        onPan={onPan}
-        isAdmin={isAdmin}
-      />
-      <RoomSelect config={config} onRoomSelected={onRoomSelectedFromDropdown} />
-      <InfoPanel
-        room={selectedRoom}
-        expanded={infoPanelExpanded}
-        focusedRoom={focusedRoom}
-        onInfoPanelExpandChange={onInfoPanelExpandChange}
-        onZoomClick={onZoomClick}
-      />
+    <main className="flex flex-col h-screen">
+      <div className="z-10">
+        <RoomSelect config={config} onRoomSelected={onRoomSelectedFromDropdown} />
+      </div>
+      <div className="flex-grow relative">
+        <Map
+          className="h-full w-full"
+          config={config}
+          selectedRoom={selectedRoom}
+          focusedRoom={focusedRoom}
+          onRoomSelected={onRoomSelectedFromMap}
+          onPan={onPan}
+          isAdmin={isAdmin}
+        />
+        <InfoPanel
+          room={selectedRoom}
+          expanded={infoPanelExpanded}
+          focusedRoom={focusedRoom}
+          onInfoPanelExpandChange={onInfoPanelExpandChange}
+          onZoomClick={onZoomClick}
+        />
+      </div>
     </main>
   );
 }

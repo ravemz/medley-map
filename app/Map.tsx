@@ -419,7 +419,11 @@ export default function Map({
         // just zoom to the focused room
         const geometry = focused.getGeometry();
         if (geometry) {
+          // Add padding with extra space at the bottom for the InfoPanel
+          const padding = [50, 50, 200, 50]; // [top, right, bottom, left]
+          
           map.getView().fit(geometry.getExtent(), {
+            padding: padding,
             duration: 300,
             maxZoom: 3,
           });
@@ -441,17 +445,12 @@ export default function Map({
             Math.max(focusedExtent[3], mainEntryExtent[3]),
           ];
         
-          // Add some padding
-          const padding = 50;
-          const paddedExtent = [
-            combinedExtent[0] - padding,
-            combinedExtent[1] - padding,
-            combinedExtent[2] + padding,
-            combinedExtent[3] + padding,
-          ];
+          // Add padding with extra space at the bottom for the InfoPanel
+          const padding = [50, 50, 50, 200]; // [top, right, bottom, left]
           
-          // Fit the view to the combined extent
-          map.getView().fit(paddedExtent, {
+          // Fit the view to the combined extent with padding
+          map.getView().fit(combinedExtent, {
+            padding: padding,
             duration: 500,
             maxZoom: 2,
           });
