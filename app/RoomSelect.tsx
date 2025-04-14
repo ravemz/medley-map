@@ -174,9 +174,9 @@ export default function RoomSelect({
       {focused && results.length > 0 && (
         <div className="relative px-4">
           <ul
-            className="mt-2 rounded-lg bg-background shadow-lg overflow-hidden border border-border"
+            className="mt-2 rounded-lg bg-background shadow-lg overflow-hidden border border-border absolute w-full z-30"
           >
-            {results.slice(0, 3).map((room, i) => {
+            {results.slice(0, 4).map((room, i) => {
               return (
                 <li key={room.id}>
               <a

@@ -48,8 +48,8 @@ export default function InfoPanel({
       icon = <ChevronUpIcon className="m-auto size-6" />;
     }
 
-    panel = (
-      <div className="relative bg-background p-4 pt-6 text-left shadow-top w-full">
+      panel = (
+      <div className="relative bg-background bg-opacity-75 p-4 pt-6 text-left shadow-top w-full">
         <header
           className={`${expanded && room.description ? "border-1 border-b border-border pb-2" : ""} ${room.description ? "cursor-pointer" : ""}`}
           onClick={handlePanelClick}
