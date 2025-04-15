@@ -1,4 +1,4 @@
-import { ViewfinderCircleIcon, LinkIcon } from "@heroicons/react/24/solid";
+import { ViewfinderCircleIcon, LinkIcon, InformationCircleIcon } from "@heroicons/react/24/solid";
 import { Room } from "./config.types";
 import { useTranslations } from "next-intl";
 
@@ -25,13 +25,17 @@ export default function InfoPanel({
   
   if (!room) {
     return (
-      <div className="absolute bottom-0 right-0 text-right z-20">
-        <div className="m-2 inline-block rounded border border-border bg-background opacity-75 shadow-xl hover:opacity-100">
-          <a href="/about" className="inline-block p-2">
-            {t("about.title")}
-          </a>
+      <>
+        {/* About link with info icon in bottom right */}
+        <div className="absolute bottom-0 right-0 text-right z-20">
+          <div className="m-2 inline-block rounded border border-border bg-background opacity-75 shadow-xl hover:opacity-100">
+            <a href="/about" className="inline-block p-2 flex items-center" title="About & Attributions">
+              <InformationCircleIcon className="size-5 mr-1" />
+              <span>{t("about.title")}</span>
+            </a>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
   
@@ -43,17 +47,18 @@ export default function InfoPanel({
 
   return (
     <>
-      {/* About link in bottom right */}
+      {/* About link with info icon in bottom right */}
       <div className="absolute bottom-0 right-0 text-right z-20">
         <div className="m-2 inline-block rounded border border-border bg-background opacity-75 shadow-xl hover:opacity-100">
-          <a href="/about" className="inline-block p-2">
-            {t("about.title")}
+          <a href="/about" className="inline-block p-2 flex items-center" title="About & Attributions">
+            <InformationCircleIcon className="size-5 mr-1" />
+            <span>{t("about.title")}</span>
           </a>
         </div>
       </div>
       
-      {/* Callout cloud for selected house - only show when coordinates are available, not for main-gate, not hidden, and map is not moving */}
-      {coordinates && room && room.id !== "main-entry" && !calloutHidden && (
+      {/* Callout cloud for selected house - only show when coordinates are available, not hidden, and map is not moving */}
+      {coordinates && room && !calloutHidden && (
         <div 
           className="absolute z-30 pointer-events-none transition-all duration-300 ease-in-out callout-container"
           style={{

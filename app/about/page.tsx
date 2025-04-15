@@ -30,7 +30,7 @@ export default function About() {
       <p>
         <a href="/">← {t("back")}</a>
       </p>
-      <h1>{t("title")}</h1>
+      <h2>{t("title")}</h2>
       <Markdown>{dedent(config.description)}</Markdown>
       <p className="border-t-2 border-border pt-4">
         {t.rich("powered-by", {
