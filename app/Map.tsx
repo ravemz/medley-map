@@ -31,6 +31,8 @@ interface MapProps extends React.HTMLAttributes<HTMLDivElement> {
   onPan?: () => void;
   onZoomChange?: (zoom: number) => void; // New prop to notify about zoom changes
   onMapInitialized?: () => void; // New prop to notify when the map is initialized
+  setIsMapMoving?: (isMoving: boolean) => void; // New prop to notify when the map is moving
+  setCalloutHidden?: (hidden: boolean) => void; // New prop to notify when the callout should be hidden
   isAdmin?: boolean; // New prop to control edit mode visibility
 }
 
@@ -50,6 +52,8 @@ export default function Map({
   onPan,
   onZoomChange,
   onMapInitialized,
+  setIsMapMoving,
+  setCalloutHidden,
   isAdmin,
   ...divProps
 }: MapProps) {
@@ -291,6 +295,12 @@ export default function Map({
         }
       });
 
+      // Handle map movement start
+      map.on("movestart", () => {
+        // Notify parent component that map is moving
+        setIsMapMoving && setIsMapMoving(true);
+      });
+      
       map.on("moveend", (e) => {
         typeof localStorage !== "undefined" &&
           localStorage.setItem(
@@ -310,22 +320,40 @@ export default function Map({
         if (selectedRoom && selectedFeature) {
           // Use the updateCalloutPosition function to ensure reliable positioning
           updateCalloutPosition(selectedFeature, selectedRoom);
+          
+          // Wait a short moment to ensure the map has settled, then notify that movement has stopped
+          setTimeout(() => {
+            setIsMapMoving && setIsMapMoving(false);
+            
+            // Phase 2: Show the callout after animation completes
+            // Check if this was a search-triggered movement (focusedRoom exists and matches selectedRoom)
+            if (focusedRoom && selectedRoom && focusedRoom.id === selectedRoom.id) {
+              // Wait a bit longer to ensure everything is settled
+              setTimeout(() => {
+                // Show the callout
+                setCalloutHidden && setCalloutHidden(false);
+                
+                // Update the callout position one more time to ensure accuracy
+                updateCalloutPosition(selectedFeature, selectedRoom);
+              }, 200);
+            }
+          }, 100);
+        } else {
+          // If no room is selected, just notify that movement has stopped
+          setIsMapMoving && setIsMapMoving(false);
         }
       });
       
       // Listen for zoom changes and map movements
-      map.getView().on('change', () => {
+      map.getView().on('change:resolution', () => {
+        // Notify parent component that map is moving
+        setIsMapMoving && setIsMapMoving(true);
+        
         const newZoom = map.getView().getZoom() || 1;
         setCurrentZoom(newZoom);
         
         // Notify parent component about zoom changes
         onZoomChange && onZoomChange(newZoom);
-        
-        // If a room is selected, update its coordinates to adjust the callout
-        if (selectedRoom && selectedFeature) {
-          // Use the updateCalloutPosition function to ensure reliable positioning
-          updateCalloutPosition(selectedFeature, selectedRoom);
-        }
       });
 
       setMap(map);
@@ -354,6 +382,16 @@ export default function Map({
     (e: MapBrowserEvent<any>) => {
       if (map == null) {
         return;
+      }
+      
+      // Check if the click is on the callout
+      // We need to check if the click target is part of the callout
+      const target = e.originalEvent.target as HTMLElement;
+      const isCalloutClick = target.closest('.callout-container') !== null;
+      
+      // If the click is not on the callout, hide it
+      if (!isCalloutClick) {
+        setCalloutHidden && setCalloutHidden(true);
       }
       
       // Handle path drawing modes
@@ -400,13 +438,16 @@ export default function Map({
         // Calculate the center of the room polygon for the callout
         updateSelectedRoomCoordinates(feature, room);
         setSelectedFeature(feature);
+        
+        // Show the callout for the selected room
+        setCalloutHidden && setCalloutHidden(false);
       } else {
         onRoomSelected && onRoomSelected(undefined);
         setSelectedFeature(null);
         setSelectedPath(null);
       }
     },
-    [map, onRoomSelected, mode, currentPath, pathsLayer],
+    [map, onRoomSelected, mode, currentPath, pathsLayer, setCalloutHidden],
   );
 
   useEffect(() => {
@@ -458,6 +499,9 @@ export default function Map({
           // Use even padding
           const padding = [50, 50, 50, 50]; // [top, right, bottom, left]
           
+          // Always reset calloutHidden to false for search selections
+          setCalloutHidden && setCalloutHidden(false);
+          
           map.getView().fit(geometry.getExtent(), {
             padding: padding,
             duration: 300,
@@ -466,6 +510,9 @@ export default function Map({
           
           // Wait for the zoom animation to complete before calculating coordinates
           setTimeout(() => {
+            // Make sure callout is not hidden
+            setCalloutHidden && setCalloutHidden(false);
+            // Update coordinates
             updateCalloutPosition(selected, selectedRoom);
           }, 350); // Slightly longer than the animation duration
         }

@@ -8,6 +8,8 @@ interface InfoPanelProps {
   coordinates?: [number, number];
   zoomLevel?: number;
   onZoomClick?: (room: Room) => void;
+  isMapMoving?: boolean;
+  calloutHidden?: boolean;
 }
 
 export default function InfoPanel({
@@ -16,6 +18,8 @@ export default function InfoPanel({
   coordinates,
   zoomLevel = 1, // Default zoom level if not provided
   onZoomClick,
+  isMapMoving = false,
+  calloutHidden = false,
 }: InfoPanelProps) {
   const t = useTranslations();
   
@@ -48,16 +52,17 @@ export default function InfoPanel({
         </div>
       </div>
       
-      {/* Callout cloud for selected house - only show when coordinates are available and not for main-gate */}
-      {coordinates && room && room.id !== "main-entry" && (
+      {/* Callout cloud for selected house - only show when coordinates are available, not for main-gate, not hidden, and map is not moving */}
+      {coordinates && room && room.id !== "main-entry" && !calloutHidden && (
         <div 
-          className="absolute z-30 pointer-events-none transition-all duration-300 ease-in-out"
+          className="absolute z-30 pointer-events-none transition-all duration-300 ease-in-out callout-container"
           style={{
             left: `${coordinates[0]}px`,
             // Adjust the vertical offset based on zoom level - more offset at higher zoom
             top: `${coordinates[1] - (40 / Math.max(0.5, zoomLevel))}px`,
             transform: 'translate(-50%, -100%)',
-            opacity: 1
+            opacity: isMapMoving ? 0 : 1,
+            visibility: isMapMoving ? 'hidden' : 'visible'
           }}
         >
           <div className="relative">

@@ -23,6 +23,8 @@ export default function App({ roomId }: { roomId?: string }) {
   const [currentZoom, setCurrentZoom] = useState<number>(1);
   const [mapInitialized, setMapInitialized] = useState<boolean>(false);
   const [mapRef, setMapRef] = useState<any>(null);
+  const [isMapMoving, setIsMapMoving] = useState<boolean>(false);
+  const [calloutHidden, setCalloutHidden] = useState<boolean>(false);
 
   // Check for admin=true in URL parameters
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
@@ -48,6 +50,8 @@ export default function App({ roomId }: { roomId?: string }) {
       if (coordinates) {
         setSelectedRoomCoords(coordinates);
       }
+      // When a room is explicitly selected, reset the calloutHidden state
+      setCalloutHidden(false);
     }
   };
 
@@ -65,9 +69,12 @@ export default function App({ roomId }: { roomId?: string }) {
   // No need for special handling of Main Entry anymore
 
   const onRoomSelectedFromDropdown = (room?: Room) => {
-    // Just set the focused room and selected room
-    // The Map component will handle calculating coordinates
+    // Set the focused room and selected room
     setFocusedRoom(room);
+    
+    // Phase 1: Hide the callout during map animation
+    setCalloutHidden(true);
+    
     onRoomSelected(room);
   };
 
@@ -96,6 +103,8 @@ export default function App({ roomId }: { roomId?: string }) {
           onPan={onPan}
           onZoomChange={setCurrentZoom}
           onMapInitialized={() => setMapInitialized(true)}
+          setIsMapMoving={setIsMapMoving}
+          setCalloutHidden={setCalloutHidden}
           isAdmin={isAdmin}
         />
         <InfoPanel
@@ -104,6 +113,8 @@ export default function App({ roomId }: { roomId?: string }) {
           coordinates={selectedRoomCoords}
           zoomLevel={currentZoom}
           onZoomClick={onZoomClick}
+          isMapMoving={isMapMoving}
+          calloutHidden={calloutHidden}
         />
       </div>
     </main>
