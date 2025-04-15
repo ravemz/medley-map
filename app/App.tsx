@@ -18,7 +18,11 @@ export default function App({ roomId }: { roomId?: string }) {
     : mainEntryRoom;
     
   const [selectedRoom, setSelectedRoom] = useState<Room | undefined>(initialRoom);
+  const [selectedRoomCoords, setSelectedRoomCoords] = useState<[number, number] | undefined>(undefined);
   const [focusedRoom, setFocusedRoom] = useState<Room | undefined>(initialRoom);
+  const [currentZoom, setCurrentZoom] = useState<number>(1);
+  const [mapInitialized, setMapInitialized] = useState<boolean>(false);
+  const [mapRef, setMapRef] = useState<any>(null);
 
   // Check for admin=true in URL parameters
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
@@ -30,38 +34,44 @@ export default function App({ roomId }: { roomId?: string }) {
     setIsAdmin(adminParam === 'true');
   }, []);
 
-  const [infoPanelExpanded, setInfoPanelExpanded] = useState(() => {
-    return Boolean(
-      typeof localStorage !== "undefined" &&
-        localStorage.getItem("infoPanelExpanded"),
-    );
-  });
+  // InfoPanel no longer needs expanded state
 
-  const onRoomSelected = (room?: Room) => {
+  const onRoomSelected = (room?: Room, coordinates?: [number, number]) => {
     if (!room) {
       setSelectedRoom(undefined);
+      setSelectedRoomCoords(undefined);
       window.history.replaceState(null, "", "/");
     } else {
-      history.replaceState(null, "", `/room/${room.id}`);
+      // Change URL scheme from /room to /house
+      history.replaceState(null, "", `/house/${room.id}`);
       setSelectedRoom(room);
+      if (coordinates) {
+        setSelectedRoomCoords(coordinates);
+      }
     }
   };
 
-  const onRoomSelectedFromMap = (room?: Room) => {
+  const onRoomSelectedFromMap = (room?: Room, coordinates?: [number, number], zoom?: number, mapInstance?: any) => {
     setFocusedRoom(undefined);
-    onRoomSelected(room);
+    onRoomSelected(room, coordinates);
+    if (zoom) {
+      setCurrentZoom(zoom);
+    }
+    if (mapInstance && !mapRef) {
+      setMapRef(mapInstance);
+    }
   };
+  
+  // No need for special handling of Main Entry anymore
 
   const onRoomSelectedFromDropdown = (room?: Room) => {
+    // Just set the focused room and selected room
+    // The Map component will handle calculating coordinates
     setFocusedRoom(room);
     onRoomSelected(room);
   };
 
-  const onInfoPanelExpandChange = (expanded: boolean) => {
-    setInfoPanelExpanded(expanded);
-    typeof localStorage !== "undefined" &&
-      localStorage.setItem("infoPanelExpanded", expanded ? "true" : "");
-  };
+  // onInfoPanelExpandChange removed as it's no longer needed
 
   const onZoomClick = (room: Room) => {
     setFocusedRoom(room);
@@ -84,13 +94,15 @@ export default function App({ roomId }: { roomId?: string }) {
           focusedRoom={focusedRoom}
           onRoomSelected={onRoomSelectedFromMap}
           onPan={onPan}
+          onZoomChange={setCurrentZoom}
+          onMapInitialized={() => setMapInitialized(true)}
           isAdmin={isAdmin}
         />
         <InfoPanel
           room={selectedRoom}
-          expanded={infoPanelExpanded}
           focusedRoom={focusedRoom}
-          onInfoPanelExpandChange={onInfoPanelExpandChange}
+          coordinates={selectedRoomCoords}
+          zoomLevel={currentZoom}
           onZoomClick={onZoomClick}
         />
       </div>

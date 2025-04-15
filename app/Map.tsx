@@ -26,9 +26,11 @@ interface MapProps extends React.HTMLAttributes<HTMLDivElement> {
   config: Config;
   selectedRoom?: Room;
   focusedRoom?: Room;
-  onRoomSelected?: (room?: Room) => void;
+  onRoomSelected?: (room?: Room, coordinates?: [number, number], zoom?: number, mapInstance?: any) => void;
   onInfoSelected?: () => void;
   onPan?: () => void;
+  onZoomChange?: (zoom: number) => void; // New prop to notify about zoom changes
+  onMapInitialized?: () => void; // New prop to notify when the map is initialized
   isAdmin?: boolean; // New prop to control edit mode visibility
 }
 
@@ -46,12 +48,15 @@ export default function Map({
   onRoomSelected,
   onInfoSelected,
   onPan,
+  onZoomChange,
+  onMapInitialized,
   isAdmin,
   ...divProps
 }: MapProps) {
   const [mapDiv, setMapDiv] = useState<HTMLDivElement | null>(null);
   const [map, setMap] = useState<olMap | null>(null);
   const [selectedFeature, setSelectedFeature] = useState<Feature | null>(null);
+  const [currentZoom, setCurrentZoom] = useState<number>(1);
   const [mode, setMode] = useState<EditMode>("view");
   const [translateInteraction, setTranslateInteraction] = useState<Translate | null>(null);
   const [drawInteraction, setDrawInteraction] = useState<Draw | null>(null);
@@ -73,22 +78,22 @@ export default function Map({
     setMapDiv(node);
   }, []);
 
-  // Define a bright green color for better contrast on green/brown background
-  const YELLOW_COLOR = "#FFFF00";
+  // Define a bright orange color for better contrast and colorblind-friendliness
+  const ORANGE_COLOR = "#FF6600";
   // Define a bright red color for the main entry
   const RED_COLOR = "#FF0000";
   // Define a blue color for navigation paths (Google Maps style)
-  const BLUE_COLOR = "#4285F4";
+  const NAVIGATION_BLUE = "#4285F4";
 
   const selectedStyle = useMemo(
     () =>
       new Style({
         stroke: new Stroke({
-          color: YELLOW_COLOR,
+          color: ORANGE_COLOR,
           width: 4,
         }),
         fill: new Fill({
-          color: "rgba(0, 0, 0, 0)",
+          color: "rgba(255, 102, 0, 0.1)", // Very light orange fill
         }),
       }),
     [],
@@ -99,7 +104,7 @@ export default function Map({
     () =>
       new Style({
         stroke: new Stroke({
-          color: BLUE_COLOR,
+          color: NAVIGATION_BLUE,
           width: 3,
         }),
       }),
@@ -111,7 +116,7 @@ export default function Map({
     () =>
       new Style({
         stroke: new Stroke({
-          color: BLUE_COLOR,
+          color: NAVIGATION_BLUE,
           width: 4,
           lineCap: 'round',
           lineJoin: 'round',
@@ -127,7 +132,7 @@ export default function Map({
         image: new CircleStyle({
           radius: 5,
           fill: new Fill({
-            color: BLUE_COLOR,
+            color: NAVIGATION_BLUE,
           }),
           stroke: new Stroke({
             color: 'white',
@@ -142,7 +147,7 @@ export default function Map({
     () =>
       new Style({
         stroke: new Stroke({
-          color: YELLOW_COLOR,
+          color: ORANGE_COLOR,
           width: 2,
           lineDash: [0.1, 5],
         }),
@@ -293,9 +298,40 @@ export default function Map({
             JSON.stringify(map.getView().calculateExtent()),
           );
         onPan && onPan();
+        
+        // Update zoom level
+        const newZoom = map.getView().getZoom() || 1;
+        setCurrentZoom(newZoom);
+        
+        // Notify parent component about zoom changes
+        onZoomChange && onZoomChange(newZoom);
+        
+        // Update callout position when map is panned
+        if (selectedRoom && selectedFeature) {
+          // Use the updateCalloutPosition function to ensure reliable positioning
+          updateCalloutPosition(selectedFeature, selectedRoom);
+        }
+      });
+      
+      // Listen for zoom changes and map movements
+      map.getView().on('change', () => {
+        const newZoom = map.getView().getZoom() || 1;
+        setCurrentZoom(newZoom);
+        
+        // Notify parent component about zoom changes
+        onZoomChange && onZoomChange(newZoom);
+        
+        // If a room is selected, update its coordinates to adjust the callout
+        if (selectedRoom && selectedFeature) {
+          // Use the updateCalloutPosition function to ensure reliable positioning
+          updateCalloutPosition(selectedFeature, selectedRoom);
+        }
       });
 
       setMap(map);
+      
+      // Notify parent component that the map is initialized
+      onMapInitialized && onMapInitialized();
     });
   }, [config.map, mapDiv, unselectedStyle]);
 
@@ -359,7 +395,10 @@ export default function Map({
         }
         
         // Handle room selection
-        onRoomSelected && onRoomSelected(feature.get("room"));
+        const room = feature.get("room");
+        
+        // Calculate the center of the room polygon for the callout
+        updateSelectedRoomCoordinates(feature, room);
         setSelectedFeature(feature);
       } else {
         onRoomSelected && onRoomSelected(undefined);
@@ -382,20 +421,58 @@ export default function Map({
     };
   }, [map, onMapClick]);
 
+  // This effect handles both map clicks and dropdown selections
   useEffect(() => {
     if (map == null) {
       return;
     }
 
     const vectorLayer = map.getLayers().getArray()[1] as VectorLayer<VectorSource>;
+    
+    // Clear previous selection
+    if (selectedFeature && selectedFeature.get("room")?.id !== "main-entry") {
+      selectedFeature.setStyle(unselectedStyle);
+    }
+    
+    // Find the feature for the selected room
     const selected = vectorLayer
       .getSource()!
       .getFeatures()
       .find(
         (f: { get: (arg0: string) => Room }) => f.get("room") === selectedRoom,
       );
+      
     if (selected != null) {
+      // Set the selected feature
       setSelectedFeature(selected);
+      
+      // Apply selected style (except for main-entry)
+      if (selected.get("room")?.id !== "main-entry") {
+        selected.setStyle(selectedStyle);
+      }
+      
+      // If this is a search/dropdown selection (focusedRoom is set), zoom to the room
+      if (selectedRoom && focusedRoom && selectedRoom.id === focusedRoom.id) {
+        const geometry = selected.getGeometry();
+        if (geometry) {
+          // Use even padding
+          const padding = [50, 50, 50, 50]; // [top, right, bottom, left]
+          
+          map.getView().fit(geometry.getExtent(), {
+            padding: padding,
+            duration: 300,
+            maxZoom: 3,
+          });
+          
+          // Wait for the zoom animation to complete before calculating coordinates
+          setTimeout(() => {
+            updateCalloutPosition(selected, selectedRoom);
+          }, 350); // Slightly longer than the animation duration
+        }
+      } else {
+        // For direct map clicks, update coordinates immediately
+        updateCalloutPosition(selected, selectedRoom);
+      }
     }
 
     const focused = vectorLayer
@@ -419,8 +496,8 @@ export default function Map({
         // just zoom to the focused room
         const geometry = focused.getGeometry();
         if (geometry) {
-          // Add padding with extra space at the bottom for the InfoPanel
-          const padding = [50, 50, 200, 50]; // [top, right, bottom, left]
+          // Use even padding since we no longer have a bottom InfoPanel
+          const padding = [50, 50, 50, 50]; // [top, right, bottom, left]
           
           map.getView().fit(geometry.getExtent(), {
             padding: padding,
@@ -445,8 +522,8 @@ export default function Map({
             Math.max(focusedExtent[3], mainEntryExtent[3]),
           ];
         
-          // Add padding with extra space at the bottom for the InfoPanel
-          const padding = [50, 50, 50, 200]; // [top, right, bottom, left]
+          // Use even padding since we no longer have a bottom InfoPanel
+          const padding = [50, 50, 50, 50]; // [top, right, bottom, left]
           
           // Fit the view to the combined extent with padding
           map.getView().fit(combinedExtent, {
@@ -508,6 +585,43 @@ export default function Map({
     }
     
     return closestIndex;
+  };
+  
+  // Update the coordinates for the selected room
+  const updateSelectedRoomCoordinates = (feature: Feature, room?: Room) => {
+    if (!map || !room || !feature || !onRoomSelected) return;
+    
+    const geometry = feature.getGeometry() as Polygon;
+    if (!geometry) return;
+    
+    const extent = geometry.getExtent();
+    // Get center of the extent in map coordinates
+    const centerMapCoords: [number, number] = [
+      (extent[0] + extent[2]) / 2, 
+      (extent[1] + extent[3]) / 2
+    ];
+    
+    // Convert map coordinates to pixel coordinates
+    const pixelCoords = map.getPixelFromCoordinate(centerMapCoords);
+    
+    if (pixelCoords) {
+      // Use pixel coordinates for positioning the callout
+      // Pass the current zoom level and map instance to adjust the callout position
+      onRoomSelected(room, [pixelCoords[0], pixelCoords[1]], currentZoom, map);
+    }
+  };
+  
+  // Update callout position with a delay to ensure it's positioned correctly after zoom/pan
+  const updateCalloutPosition = (feature: Feature, room?: Room) => {
+    if (!map || !room || !feature || !onRoomSelected) return;
+    
+    // Update immediately first
+    updateSelectedRoomCoordinates(feature, room);
+    
+    // Then update again after a short delay to ensure correct positioning
+    setTimeout(() => {
+      updateSelectedRoomCoordinates(feature, room);
+    }, 50);
   };
 
   useEffect(() => {
