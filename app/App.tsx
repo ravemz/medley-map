@@ -64,6 +64,7 @@ export default function App({ roomId }: { roomId?: string }) {
     if (mapInstance && !mapRef) {
       setMapRef(mapInstance);
     }
+    // For manual map selections, the callout visibility is handled in Map.tsx
   };
   
   // No need for special handling of Main Entry anymore
@@ -72,7 +73,7 @@ export default function App({ roomId }: { roomId?: string }) {
     // Set the focused room and selected room
     setFocusedRoom(room);
     
-    // Phase 1: Hide the callout during map animation
+    // Hide the callout for search selections and keep it hidden
     setCalloutHidden(true);
     
     onRoomSelected(room);
