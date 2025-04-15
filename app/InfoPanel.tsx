@@ -26,8 +26,8 @@ export default function InfoPanel({
   if (!room) {
     return (
       <>
-        {/* About link with info icon in bottom right */}
-        <div className="absolute bottom-0 right-0 text-right z-20">
+        {/* About link with info icon in bottom right (moved up for mobile visibility) */}
+        <div className="absolute bottom-[100px] right-0 text-right z-20">
           <div className="m-2 inline-block rounded border border-border bg-background opacity-75 shadow-xl hover:opacity-100">
             <a href="/about" className="inline-block p-2 flex items-center" title="About & Attributions">
               <InformationCircleIcon className="size-5 mr-1" />
@@ -47,8 +47,8 @@ export default function InfoPanel({
 
   return (
     <>
-      {/* About link with info icon in bottom right */}
-      <div className="absolute bottom-0 right-0 text-right z-20">
+      {/* About link with info icon in bottom right (moved up for mobile visibility) */}
+      <div className="absolute bottom-[100px] right-0 text-right z-20">
         <div className="m-2 inline-block rounded border border-border bg-background opacity-75 shadow-xl hover:opacity-100">
           <a href="/about" className="inline-block p-2 flex items-center" title="About & Attributions">
             <InformationCircleIcon className="size-5 mr-1" />
